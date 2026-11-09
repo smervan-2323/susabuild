@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cyrus the Great — Animated</title>
+<meta name="description" content="A hand-built, fully animated illustration of Cyrus the Great, founder of the Achaemenid Persian Empire." />
+<style>
+  :root{ --gold:#e0b64b; --cream:#f2e6cf; --muted:#b8a582; }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{min-height:100%;font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;color:var(--cream);
+    background:radial-gradient(1000px 500px at 50% 0%, #2a2140, #140f1e 60%, #0c0912);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px 16px;text-align:center;}
+  h1{margin:0;font-size:clamp(26px,5vw,44px);letter-spacing:6px;color:var(--gold);text-shadow:0 2px 0 #6b4d16,0 0 40px rgba(224,182,75,.25);}
+  .sub{margin:0;color:var(--cream);letter-spacing:3px;font-weight:400;}
+  .stage{width:min(92vw,420px);border-radius:16px;overflow:hidden;border:2px solid #4a3620;
+    box-shadow:0 10px 40px rgba(0,0,0,.6);cursor:pointer;}
+  .stage svg{display:block;width:100%;height:auto;}
+  .cap{color:var(--muted);max-width:560px;line-height:1.6;font-size:15px;}
+  .btn{font-family:inherit;font-weight:800;font-size:16px;letter-spacing:1px;color:#2a1c09;
+    background:linear-gradient(180deg,var(--gold),#c8912b);border:1px solid #8a6418;border-radius:10px;
+    padding:13px 26px;cursor:pointer;box-shadow:0 2px 0 #140e09;transition:transform .08s,filter .12s;}
+  .btn:hover{transform:translateY(-1px);filter:brightness(1.1);}
+  .btn:active{transform:translateY(1px);}
+  .foot{color:#6e6150;font-size:12px;margin-top:4px;}
+</style>
+</head>
+<body>
+  <h1>CYRUS THE GREAT</h1>
+  <p class="sub">King of the Four Corners of the World</p>
+  <div class="stage" id="stage"></div>
+  <button class="btn" id="cry">⚔️ Battle Cry</button>
+  <p class="cap">Founder of the Achaemenid Persian Empire (c.&nbsp;600–530&nbsp;BCE) — shown in the tall fluted crown and royal robe of Persepolis, beneath the winged <em>Faravahar</em>. Tap him, or press the button, for his battle cry.</p>
+  <p class="foot">Hand-built animated SVG · part of “Cyrus: Lord of the Four Corners.”</p>
+
+  <script src="js/hero.js"></script>
+  <script>
+    document.getElementById("stage").innerHTML = window.CYRUS_SVG;
+    const fire = () => window.cyrusCry(document.getElementById("stage"));
+    document.getElementById("stage").onclick = fire;
+    document.getElementById("cry").onclick = fire;
+    setTimeout(fire, 600);
+  </script>
+</body>
+</html>

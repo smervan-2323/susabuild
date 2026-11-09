@@ -22,21 +22,28 @@ const UI = {
     const hasSave = Game.state.cleared > 0;
     app().innerHTML = `
       <div class="screen title-screen">
-        <div class="faravahar">𐎠</div>
-        <h1 class="game-title">CYRUS</h1>
-        <h2 class="game-sub">Lord of the Four Corners</h2>
-        <p class="tagline">An ancient-world grand-strategy battle game.<br>
-           Relive the real conquests of Cyrus the Great across 100 levels — from the plains of Persis to the walls of Babylon.</p>
-        <div class="menu-btns">
-          <button class="btn btn-gold" id="btn-continue" ${hasSave ? "" : "disabled"}>
-            ${hasSave ? `Continue — Level ${Game.state.cleared + 1}` : "Continue"}
-          </button>
-          <button class="btn" id="btn-new">New Campaign</button>
-          <button class="btn btn-ghost" id="btn-howto">How to Play</button>
-          <button class="btn btn-ghost" id="btn-codex2">Historical Codex</button>
+        <div class="title-hero">
+          <div class="hero-stage" id="hero-stage" title="Tap for his battle cry!">${window.CYRUS_SVG || ""}</div>
+          <div class="hero-cap">Cyrus the Great · <span class="muted">tap him for a battle cry</span></div>
         </div>
-        <p class="credit">A playable history. Years are BCE. Sources: Herodotus · Xenophon · the Nabonidus Chronicle · the Cyrus Cylinder.</p>
+        <div class="title-side">
+          <h1 class="game-title">CYRUS</h1>
+          <h2 class="game-sub">Lord of the Four Corners</h2>
+          <p class="tagline">An ancient-world grand-strategy battle game.<br>
+             Relive the real conquests of Cyrus the Great across 100 levels — from the plains of Persis to the walls of Babylon.</p>
+          <div class="menu-btns">
+            <button class="btn btn-gold" id="btn-continue" ${hasSave ? "" : "disabled"}>
+              ${hasSave ? `Continue — Level ${Game.state.cleared + 1}` : "Continue"}
+            </button>
+            <button class="btn" id="btn-new">New Campaign</button>
+            <button class="btn btn-ghost" id="btn-howto">How to Play</button>
+            <button class="btn btn-ghost" id="btn-codex2">Historical Codex</button>
+          </div>
+          <p class="credit">A playable history. Years are BCE. Sources: Herodotus · Xenophon · the Nabonidus Chronicle · the Cyrus Cylinder.</p>
+        </div>
       </div>`;
+    const stage = document.getElementById("hero-stage");
+    if (stage) { stage.onclick = () => window.cyrusCry && window.cyrusCry(stage); window.cyrusCry && window.cyrusCry(stage); }
     document.getElementById("btn-continue").onclick = () => hasSave && this.renderMap();
     document.getElementById("btn-new").onclick = () => {
       if (!hasSave || confirm("Begin a new campaign? Your current progress will be lost.")) {
