@@ -539,6 +539,9 @@ const Field = {
 
     // The Immortals get distinctive elite guardsman art.
     if (u.type === "immortals") { this._immortalBody(ctx, u, bob); ctx.restore(); return; }
+    // Player's Persian line gets original Achaemenid-styled art.
+    if (player && u.role === "infantry") { this._drawSparabara(ctx, u, bob); ctx.restore(); return; }
+    if (player && u.role === "archer")   { this._drawPersianArcher(ctx, u, bob); ctx.restore(); return; }
 
     const mounted = u.role === "cavalry" || u.role === "camel" || u.role === "chariot";
     if (mounted) {
@@ -629,6 +632,61 @@ const Field = {
     ctx.beginPath(); ctx.moveTo(-4.5, -6); ctx.quadraticCurveTo(0, -4, 4.5, -6); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-4.5, 6); ctx.quadraticCurveTo(0, 4, 4.5, 6); ctx.stroke();
     ctx.restore();
+  },
+
+  // Sparabara spearman: patterned tunic, soft cap, spear, and a tall woven
+  // wicker body-shield (spara). Original art in the Achaemenid style.
+  _drawSparabara(ctx, u, bob) {
+    const tunic = "#3a6a9c", trim = "#e0b64b", skin = "#caa06a", f = u.flinch > 0 ? 1.5 : 0;
+    const ry = -2 + f;
+    ctx.fillStyle = "#6a5236"; ctx.fillRect(-4, -8 + bob * 0.3, 3, 9); ctx.fillRect(2, -8 - bob * 0.3, 3, 9);
+    // tunic
+    ctx.fillStyle = tunic; ctx.fillRect(-5, ry - 14 + bob, 10, 16);
+    ctx.fillStyle = trim; ctx.fillRect(-5, ry - 2 + bob, 10, 2);           // hem
+    ctx.fillStyle = "#d8b45a"; ctx.fillRect(-5, ry - 10 + bob, 10, 1.2);   // chest band
+    // head + beard
+    ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(0, ry - 18 + bob, 4.2, 0, 6.28); ctx.fill();
+    ctx.fillStyle = "#2e2016"; ctx.beginPath(); ctx.arc(0, ry - 14 + bob, 3.2, 0, Math.PI); ctx.fill();
+    // soft rounded cap
+    ctx.fillStyle = "#24405f"; ctx.beginPath(); ctx.arc(0, ry - 20 + bob, 4.4, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = trim; ctx.fillRect(-4.4, ry - 20 + bob, 8.8, 1.4);
+    // spear (back hand)
+    ctx.strokeStyle = "#8a6a3a"; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.moveTo(-6, ry - 28 + bob); ctx.lineTo(-6, 1); ctx.stroke();
+    ctx.fillStyle = "#e8e2d2"; ctx.beginPath(); ctx.moveTo(-6, ry - 32 + bob); ctx.lineTo(-8, ry - 27 + bob); ctx.lineTo(-4, ry - 27 + bob); ctx.closePath(); ctx.fill();
+    // tall woven wicker spara shield (forward)
+    ctx.save(); ctx.translate(6, ry - 7 + bob);
+    ctx.fillStyle = "#9c7a2e"; ctx.fillRect(-4, -11, 9, 22);
+    ctx.strokeStyle = "#5a4420"; ctx.lineWidth = 0.9;
+    for (let yy = -9; yy < 10; yy += 2.6) { ctx.beginPath(); ctx.moveTo(-4, yy); ctx.lineTo(5, yy); ctx.stroke(); }
+    ctx.strokeStyle = trim; ctx.lineWidth = 1.4; ctx.strokeRect(-4, -11, 9, 22);
+    ctx.restore();
+  },
+
+  // Persian archer: bashlyk hood, patterned tunic, a back quiver and a drawn bow.
+  _drawPersianArcher(ctx, u, bob) {
+    const tunic = "#5a4a8c", trim = "#e0b64b", skin = "#caa06a", f = u.flinch > 0 ? 1.5 : 0;
+    const ry = -2 + f;
+    ctx.fillStyle = "#6a5236"; ctx.fillRect(-4, -8 + bob * 0.3, 3, 9); ctx.fillRect(2, -8 - bob * 0.3, 3, 9);
+    // quiver + arrows on back
+    ctx.fillStyle = "#7a4a2a"; ctx.fillRect(-8, ry - 16 + bob, 3, 13);
+    ctx.strokeStyle = "#e8dcbf"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-7, ry - 16 + bob); ctx.lineTo(-9, ry - 22 + bob); ctx.moveTo(-6, ry - 16 + bob); ctx.lineTo(-7.5, ry - 22 + bob); ctx.stroke();
+    // tunic
+    ctx.fillStyle = tunic; ctx.fillRect(-5, ry - 14 + bob, 10, 16);
+    ctx.fillStyle = trim; ctx.fillRect(-5, ry - 2 + bob, 10, 2);
+    ctx.fillStyle = "#d8b45a"; ctx.fillRect(-5, ry - 9 + bob, 10, 1.1);
+    // head
+    ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(0, ry - 18 + bob, 4.2, 0, 6.28); ctx.fill();
+    ctx.fillStyle = "#2e2016"; ctx.beginPath(); ctx.arc(0, ry - 14 + bob, 2.8, 0, Math.PI); ctx.fill();
+    // bashlyk soft hood
+    ctx.fillStyle = "#c69a3e"; ctx.beginPath();
+    ctx.moveTo(-4.4, ry - 17 + bob); ctx.quadraticCurveTo(-1, ry - 26 + bob, 4.4, ry - 19 + bob);
+    ctx.lineTo(4.4, ry - 16 + bob); ctx.lineTo(-4.4, ry - 16 + bob); ctx.closePath(); ctx.fill();
+    // drawn bow (forward)
+    ctx.strokeStyle = "#7a5a32"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(7, ry - 12 + bob, 9, -1.2, 1.2); ctx.stroke();
+    ctx.strokeStyle = "#e8dcbf"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(7, ry - 21 + bob); ctx.lineTo(7, ry - 3 + bob); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(1, ry - 12 + bob); ctx.lineTo(13, ry - 12 + bob); ctx.stroke();   // nocked arrow
   },
 
   // A mounted, crowned commander (Cyrus, or the enemy king) — larger and regal.
