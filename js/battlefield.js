@@ -692,9 +692,9 @@ const Field = {
   // A mounted, crowned commander (Cyrus, or the enemy king) — larger and regal.
   _drawHero(ctx, u) {
     const player = u.side === "p";
-    const robe = player ? "#9c2f27" : "#2f4a6d";
+    const robe = player ? "#7a4a9c" : "#2f4a6d";
     const horse = player ? "#5a4030" : "#40342a";
-    const cape = player ? "#5a2a7a" : "#3a2f5a";
+    const cape = player ? "#4a2a68" : "#3a2f5a";
     ctx.save(); ctx.translate(u.x, u.y);
 
     // shadow

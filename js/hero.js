@@ -34,6 +34,22 @@
     for (let fx = x + 3; fx < x + w - 2; fx += 6) s += `<line x1="${fx}" y1="${top}" x2="${fx}" y2="${bot}" stroke="${color}" stroke-width="1.4" opacity=".5"/>`;
     return s;
   }
+  // A fanned, ribbed headdress of alternating blue and gold bands (original,
+  // inspired by the Achaemenid royal tiara/hair).
+  function ribs(cx, cy, rMin, rMax, step) {
+    let s = "", i = 0;
+    for (let r = rMax; r >= rMin; r -= step) {
+      const col = (i % 2 === 0) ? "#2f5d8c" : "#e0b64b";
+      s += `<path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none" stroke="${col}" stroke-width="${step + 1.5}"/>`;
+      i++;
+    }
+    return s;
+  }
+  function star(cx, cy, R) {
+    let p = [];
+    for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = (k % 2 === 0) ? R : R * 0.42; p.push(`${(cx + Math.cos(a) * rr).toFixed(1)},${(cy + Math.sin(a) * rr).toFixed(1)}`); }
+    return `<polygon points="${p.join(' ')}" fill="#e0b64b"/>`;
+  }
 
   const CYRUS_SVG = `
 <svg class="cyrus-svg" viewBox="0 0 480 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Animated portrait of Cyrus the Great">
@@ -48,7 +64,7 @@
       <stop offset="0" stop-color="#ffe9a8"/><stop offset=".5" stop-color="#e0b64b"/><stop offset="1" stop-color="#9c7016"/>
     </linearGradient>
     <linearGradient id="cy-robe" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#9c2f27"/><stop offset="1" stop-color="#5e1813"/>
+      <stop offset="0" stop-color="#8a5aa6"/><stop offset="1" stop-color="#4a2a68"/>
     </linearGradient>
     <linearGradient id="cy-cape" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#5a2a7a"/><stop offset="1" stop-color="#2e1546"/>
@@ -196,21 +212,19 @@
     <!-- the great square curled beard -->
     ${beardCurls()}
 
-    <!-- fluted Achaemenid crown -->
+    <!-- ribbed blue-and-gold royal headdress + gold tiara band + star medallions -->
     <g>
-      <rect x="198" y="150" width="84" height="40" rx="4" fill="url(#cy-gold)" stroke="#7a5713" stroke-width="2"/>
-      ${flutes(198, 84, 152, 188, "#9c7016")}
-      <!-- crenellated top -->
-      <g fill="url(#cy-gold)" stroke="#7a5713" stroke-width="1.5">
-        <rect x="200" y="138" width="14" height="14"/><rect x="220" y="138" width="14" height="14"/>
-        <rect x="240" y="138" width="14" height="14"/><rect x="260" y="138" width="14" height="14"/>
+      ${ribs(240, 198, 28, 86, 9)}
+      <!-- gold tiara band across the brow -->
+      <path d="M196 196 Q240 182 284 196 L284 204 Q240 192 196 204 Z" fill="url(#cy-gold)" stroke="#7a5713" stroke-width="1.5"/>
+      <g fill="#7a1f18"><circle cx="214" cy="198" r="2.4"/><circle cx="240" cy="194" r="2.8"/><circle cx="266" cy="198" r="2.4"/></g>
+      <!-- red star medallions over the ears, with tassels -->
+      <g>
+        <circle cx="198" cy="226" r="12" fill="#b5342a" stroke="#e0b64b" stroke-width="3"/>${star(198, 226, 7)}
+        <rect x="194" y="238" width="8" height="10" fill="url(#cy-gold)"/><rect x="195.5" y="238" width="1.6" height="10" fill="#9c7016"/><rect x="199" y="238" width="1.6" height="10" fill="#9c7016"/>
+        <circle cx="282" cy="226" r="12" fill="#b5342a" stroke="#e0b64b" stroke-width="3"/>${star(282, 226, 7)}
+        <rect x="278" y="238" width="8" height="10" fill="url(#cy-gold)"/><rect x="279.5" y="238" width="1.6" height="10" fill="#9c7016"/><rect x="283" y="238" width="1.6" height="10" fill="#9c7016"/>
       </g>
-      <!-- jeweled band -->
-      <rect x="198" y="186" width="84" height="9" fill="#7a1f18"/>
-      <g fill="#e0b64b"><circle cx="214" cy="190.5" r="3"/><circle cx="240" cy="190.5" r="3.6"/><circle cx="266" cy="190.5" r="3"/></g>
-      <!-- central sun jewel -->
-      <circle cx="240" cy="168" r="8" fill="#2a5a8c" stroke="#e0b64b" stroke-width="2"/>
-      <path d="M240 156 l2 6 h-4 Z M240 180 l2 -6 h-4 Z M228 168 l6 2 v-4 Z M252 168 l-6 2 v-4 Z" fill="#ffe9a8"/>
     </g>
   </g>
 
