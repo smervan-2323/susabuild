@@ -242,36 +242,58 @@ const UI = {
   renderBriefing(n) {
     const lvl = D.LEVELS[n - 1];
     const t = D.TERRAIN[lvl.terrain];
-    // Enemy composition preview.
+    const cmd = D.getCommander(n);
+    // first sentence = punchy hook; the rest is optional history.
+    const firstDot = lvl.story.indexOf(". ");
+    const hook = firstDot > 0 ? lvl.story.slice(0, firstDot + 1) : lvl.story;
+    const rest = firstDot > 0 ? lvl.story.slice(firstDot + 1).trim() : "";
     let comp = Object.entries(lvl.enemyComp)
       .filter(([, c]) => c > 0)
-      .map(([k, c]) => `${D.UNITS[k].icon} ${D.UNITS[k].name}: ~${c}`).join(" · ");
+      .map(([k, c]) => `${D.UNITS[k].icon} ~${c}`).join("  ");
 
     app().innerHTML = `
       <div class="screen briefing-screen" style="--ch:${lvl.chapterTheme}">
         <div class="briefing-card">
           <div class="brief-top">
-            <span class="brief-chapter">Chapter ${lvl.chapter} · ${esc(lvl.chapterName)}</span>
-            <span class="brief-num">Level ${n}/100 ${lvl.isBoss ? "👑" : ""}</span>
+            <span class="brief-chapter">Ch. ${lvl.chapter} · ${esc(lvl.chapterName)}</span>
+            <span class="brief-num">Level ${n}/100 ${lvl.isBoss ? "👑 Boss" : ""}</span>
           </div>
           <h2 class="brief-title">${esc(lvl.title)}</h2>
           <div class="brief-meta">
+            <span>${t.icon} ${t.name}${lvl.fort ? " · 🏰 Walls" : ""}</span>
             <span>📍 ${esc(lvl.loc)}</span>
             ${lvl.year ? `<span>🗓️ ${lvl.year} BCE</span>` : ""}
-            <span>${t.icon} ${t.name}${lvl.fort ? " · Fortified walls" : ""}</span>
           </div>
-          <p class="brief-story">${esc(lvl.story)}</p>
-          <div class="brief-enemy">
-            <b>The enemy host (${esc(lvl.enemyName)}):</b><br>${comp}
+
+          <div class="versus">
+            <div class="vs-fighter player">
+              <div class="portrait p">${D.HERO.avatar}</div>
+              <div class="vs-name">${esc(D.HERO.name)}</div>
+              <div class="vs-sub">${esc(D.HERO.epithet)}</div>
+            </div>
+            <div class="vs-mid">VS</div>
+            <div class="vs-fighter enemy">
+              <div class="portrait e">${cmd.avatar}</div>
+              <div class="vs-name">${esc(cmd.name)}</div>
+              <div class="vs-sub">${esc(lvl.enemyName)}</div>
+            </div>
           </div>
-          ${lvl.forceAbility ? `<div class="brief-hint">💡 History offers you a special gambit here: <b>${esc(D.ABILITIES[lvl.forceAbility].name)}</b> — ${esc(D.ABILITIES[lvl.forceAbility].desc)}</div>` : ""}
-          <div class="brief-yours">
-            <b>Your host:</b> ${this.rosterLine()}
+
+          <p class="brief-hook">${esc(hook)}</p>
+          <p class="enemy-cry">“${esc(cmd.cry)}”</p>
+
+          <div class="brief-hosts">
+            <div class="host-col"><span class="host-lbl">Your host</span><span class="host-line">${this.rosterLine()}</span></div>
+            <div class="host-col"><span class="host-lbl">Enemy host</span><span class="host-line">${comp}</span></div>
           </div>
+          ${lvl.forceAbility ? `<div class="brief-hint">💡 A special gambit is in your hand here: <b>${esc(D.ABILITIES[lvl.forceAbility].name)}</b></div>` : ""}
+
+          ${rest ? `<details class="history-fold"><summary>📜 The history behind this battle</summary><p>${esc(rest)}</p></details>` : ""}
+
           <div class="brief-actions">
             <button class="btn btn-ghost" id="b-back">← Map</button>
-            <button class="btn btn-ghost" id="b-council">🏛️ Council first</button>
-            <button class="btn btn-gold" id="b-fight">⚔️ To Battle</button>
+            <button class="btn btn-ghost" id="b-council">🏛️ Council</button>
+            <button class="btn btn-gold btn-charge" id="b-fight">⚔️ CHARGE INTO BATTLE</button>
           </div>
         </div>
       </div>`;
@@ -286,114 +308,110 @@ const UI = {
       .map(([k, u]) => `${D.UNITS[k].icon} ${u.count}`).join("  ");
   },
 
-  /* ---------- BATTLE ---------- */
+  /* ---------- BATTLE (live animated) ---------- */
   startBattle(lvl) {
     const b = Battle.begin(lvl);
-    // Apply any morale boost banked from a council decision.
-    if (Game.state.moraleBoost) { b.pMorale = Math.min(150, b.pMorale + Game.state.moraleBoost); Game.state.moraleBoost = 0; Game.save(); }
-    this.renderBattle();
+    b.bonusMorale = Game.state.moraleBoost || 0;
+    Game.state.moraleBoost = 0; Game.save();
+    this._battle = b;
+    this._stance = "advance";
+    this.renderBattle(lvl, b);
+    // kick off the live simulation
+    Field.start(lvl, b, (payload) => this.onBattleEnd(lvl, payload));
+    this._startHudTicker();
   },
 
-  renderBattle() {
-    const b = Battle.active;
-    const lvl = b.level;
+  renderBattle(lvl, b) {
+    const stances = [
+      { k: "charge",     ico: "🏇", n: "Charge" },
+      { k: "shieldwall", ico: "🛡️", n: "Shield Wall" },
+      { k: "volley",     ico: "🏹", n: "Volley" },
+      { k: "flank",      ico: "🔄", n: "Flank" },
+      { k: "advance",    ico: "⚔️", n: "Advance" }
+    ];
+    const stanceBtns = stances.map(s =>
+      `<button class="stance-btn ${s.k === "advance" ? "active" : ""}" data-stance="${s.k}">
+         <span class="st-ico">${s.ico}</span><span class="st-n">${s.n}</span></button>`).join("");
 
-    // Order buttons.
-    const orders = Object.values(D.ORDERS).map(o =>
-      `<button class="order-btn" data-order="${o.key}" title="${esc(o.desc)}">
-         <span class="order-ico">${o.icon}</span><span class="order-name">${esc(o.name)}</span>
-       </button>`).join("");
-
-    // Ability buttons.
     const abBtns = Object.values(b.abilities).map(ab => {
       const disabled = ab.left <= 0 || (ab.gold && Game.state.gold < ab.gold);
-      const pending = b.pendingAbility === ab.key;
-      return `<button class="ability-btn ${pending ? "pending" : ""}" data-ab="${ab.key}" ${disabled ? "disabled" : ""}
-                title="${esc(ab.desc)}">
+      return `<button class="ability-btn" data-ab="${ab.key}" ${disabled ? "disabled" : ""} title="${esc(ab.desc)}">
                 ${ab.icon} ${esc(ab.name)} <span class="ab-left">×${ab.left}</span>${ab.gold ? ` 💰${ab.gold}` : ""}
               </button>`;
     }).join("");
-
-    const logHtml = b.log.slice(-7).map(l => `<div class="log-${l.t}">${l.m}</div>`).join("");
 
     app().innerHTML = `
       <div class="screen battle-screen" style="--ch:${lvl.chapterTheme}">
         <div class="battle-header">
           <span class="bh-title">${esc(lvl.title)}</span>
-          <span class="bh-terr">${D.TERRAIN[lvl.terrain].icon} ${D.TERRAIN[lvl.terrain].name}${b.fort > 0 ? ` · 🏰 Fort ${b.fort}` : ""}</span>
-          <span class="bh-round">Round ${b.round}</span>
+          <span class="bh-terr">${D.TERRAIN[lvl.terrain].icon} ${D.TERRAIN[lvl.terrain].name}${b.fort > 0 ? ` · 🏰` : ""}</span>
         </div>
-
-        <div class="armies">
-          <div class="army-side player-side">
-            <div class="army-label">⚜️ Your Host</div>
-            ${this.armyBars(b.player)}
-            ${this.moraleBar("Morale", b.pMorale, "player")}
-            <div class="army-total">${Battle._strength(b.player)} / ${b.pStart}</div>
+        <div class="field-wrap">
+          <div class="morale-strip">
+            <span class="ms-label">⚜️ Cyrus</span>
+            <div class="morale-track"><div class="morale-fill" id="pmor"></div></div>
+            <span class="ms-mid">morale</span>
+            <div class="morale-track rev"><div class="morale-fill enemy" id="emor"></div></div>
+            <span class="ms-label e">${esc(D.getCommander(lvl.n).avatar)} Foe</span>
           </div>
-          <div class="vs">⚔️</div>
-          <div class="army-side enemy-side">
-            <div class="army-label">🦁 ${esc(lvl.enemyName)}</div>
-            ${this.armyBars(b.enemy)}
-            ${this.moraleBar("Morale", b.eMorale, "enemy")}
-            <div class="army-total">${Battle._strength(b.enemy)} / ${b.eStart}</div>
-          </div>
+          <canvas id="field"></canvas>
+          <div class="field-counts"><span id="pcount">⚜️ —</span><span id="ecount">— 🦁</span></div>
         </div>
-
-        <div class="combat-log">${logHtml}</div>
-
         <div class="battle-controls">
           <div class="abilities-row">${abBtns || '<span class="muted">No special gambits here.</span>'}</div>
-          <div class="orders-label">Give the order:</div>
-          <div class="orders-row">${orders}</div>
+          <div class="orders-label">Command your army — tap to change their tactics live:</div>
+          <div class="stance-row">${stanceBtns}</div>
         </div>
       </div>`;
 
-    document.querySelectorAll("[data-order]").forEach(btn => {
+    document.querySelectorAll("[data-stance]").forEach(btn => {
       btn.onclick = () => {
-        Battle.resolve(btn.dataset.order);
-        if (Battle.active.over) this.endBattle();
-        else this.renderBattle();
+        Field.setStance(btn.dataset.stance);
+        document.querySelectorAll(".stance-btn").forEach(x => x.classList.remove("active"));
+        btn.classList.add("active");
       };
     });
     document.querySelectorAll("[data-ab]").forEach(btn => {
       btn.onclick = () => {
-        const r = Battle.useAbility(btn.dataset.ab);
-        if (r.ok) { this.toast(`${r.name} readied — it fires with your next order.`, "good"); this.renderBattle(); }
+        const r = Field.fireAbility(btn.dataset.ab, b);
+        if (r.ok) { this.toast(`${r.name}!`, "good"); btn.querySelector(".ab-left").textContent = "×" + b.abilities[btn.dataset.ab].left;
+          if (b.abilities[btn.dataset.ab].left <= 0) btn.disabled = true; }
         else this.toast(r.msg || "Cannot use that now.", "bad");
       };
     });
   },
 
-  armyBars(army) {
-    return Object.entries(army).filter(([, u]) => u.count > 0).map(([k, u]) => {
-      const def = D.UNITS[k];
-      return `<div class="ubar" title="${esc(def.name)} — ${esc(def.blurb)}">
-          <span class="ubar-ico">${def.icon}</span>
-          <span class="ubar-name">${esc(def.name)}</span>
-          <span class="ubar-count">${u.count}</span>
-        </div>`;
-    }).join("");
+  _startHudTicker() {
+    clearInterval(this._hud);
+    this._hud = setInterval(() => {
+      if (!Field.active || Field.active.ended) { clearInterval(this._hud); return; }
+      const a = Field.active;
+      const pm = document.getElementById("pmor"), em = document.getElementById("emor");
+      if (!pm) { clearInterval(this._hud); return; }
+      const pMor = Math.max(0, Math.min(100, (a.pMorale / 150) * 100));
+      const eMor = Math.max(0, Math.min(100, (a.eMorale / 150) * 100));
+      pm.style.width = pMor + "%"; pm.style.background = a.pMorale > 70 ? "#4caf50" : a.pMorale > 35 ? "#e0a92b" : "#c0392b";
+      em.style.width = eMor + "%"; em.style.background = a.eMorale > 70 ? "#4caf50" : a.eMorale > 35 ? "#e0a92b" : "#c0392b";
+      const pc = Field._alive("p").length, ec = Field._alive("e").length;
+      document.getElementById("pcount").textContent = `⚜️ ${pc} standing`;
+      document.getElementById("ecount").textContent = `${ec} standing 🦁`;
+    }, 120);
   },
 
-  moraleBar(label, val, side) {
-    const pct = Math.max(0, Math.min(100, (val / 150) * 100));
-    const col = val > 70 ? "#4caf50" : val > 35 ? "#e0a92b" : "#c0392b";
-    return `<div class="morale-wrap"><span class="morale-label">${label}</span>
-      <div class="morale-track"><div class="morale-fill ${side}" style="width:${pct}%;background:${col}"></div></div>
-      <span class="morale-val">${Math.round(val)}</span></div>`;
-  },
+  onBattleEnd(lvl, payload) {
+    clearInterval(this._hud);
+    const survivors = payload.survivors;
+    // merge in any roster units that weren't in this fight (count 0 etc.)
+    for (const [k, u] of Object.entries(Game.state.roster)) if (!survivors[k]) survivors[k] = { count: u.count, vet: u.vet };
+    const startTroops = this._battle.pStart;
+    const lost = Math.max(0, startTroops - Object.values(survivors).reduce((s, u) => s + u.count, 0));
+    Game.state.stats.troopsLost += lost;
 
-  endBattle() {
-    const b = Battle.active;
-    const res = Battle.result();
-    const survivors = Battle.survivors();
-    const lvl = b.level;
-
-    if (res.won) {
+    if (payload.won) {
+      const res = { flawless: lost < startTroops * 0.18 };
       const gold = Game.winLevel(lvl, survivors, res);
       if (lvl.isFinal) return this.renderEnding();
-      this.renderVictory(lvl, res, gold);
+      this.renderVictory(lvl, { won: true, lost, flawless: res.flawless }, gold);
     } else {
       Game.loseLevel(survivors);
       this.renderDefeat(lvl);

@@ -34,24 +34,29 @@ to the browser via `localStorage`, so you can close the tab and pick up where yo
 - **Army roster with veterancy** — the troops that survive a battle gain experience and fight harder.
 
 ### The battle system (the heart of it)
-Battles are **turn-based**. Each round you commit a **Battle Order**, and the orders counter each other:
+Battles play out **live on an animated battlefield** (HTML canvas). Your Persian warriors — spearmen,
+archers, cavalry, camels — march out under **Cyrus the Great** to clash with a **named enemy
+commander** (Astyages, Croesus, Belshazzar, Queen Tomyris…) and their host. Arrows fly, cavalry
+charges home, and warriors fall across a themed backdrop that changes with the terrain (sunlit plains,
+dunes, mountain passes, river crossings, city walls).
 
-| If you order… | It beats… | …but loses to |
-|---|---|---|
-| 🛡️ Spear Wall | Cavalry Charge | Arrow Storm |
-| 🏹 Arrow Storm | Spear Wall / Shield Advance | Cavalry Charge |
-| 🏇 Cavalry Charge | Arrow Storm / Flanking | Spear Wall / Feigned Retreat |
-| 🏃 Feigned Retreat | aggressive charges | Arrow Storm / Hold |
-| 🔄 Flanking Maneuver | dug-in / holding foes | Cavalry Charge |
+You **command your army in real time** — tap a tactic and the whole line changes what it does:
 
-On top of that, **unit types** follow rock-paper-scissors — infantry beat cavalry, cavalry beat
-archers, archers beat infantry — and **terrain** matters (cavalry and chariots dominate open plains
-but flounder in mountains and sieges). **Camels terrify horses**, **siege engines crack walls**, and
-**scythed chariots** carve through packed infantry.
+| Tactic | Effect |
+|---|---|
+| 🏇 **Charge** | Faster, harder-hitting, cavalry smashes home — but more exposed |
+| 🛡️ **Shield Wall** | Hold formation, heavy defence, brutal against cavalry |
+| 🏹 **Volley** | Archers loose a rapid, stronger barrage |
+| 🔄 **Flank** | Riders sweep wide and break the enemy's nerve |
+| ⚔️ **Advance** | A balanced push |
 
-Watch both **morale** bars: when a side's morale breaks, it routs and the battle ends. Spend limited
-**special gambits** at the right moment to swing a fight:
-- 📯 **Rally the Troops** · 🐪 **Camel Gambit** · 🛞 **Scythed Charge** · 🌙 **Night Assault**
+**Unit types** follow rock-paper-scissors — infantry beat cavalry, cavalry beat archers, archers beat
+infantry — and terrain matters. **Camels terrify horses**, **siege engines crack walls**, **scythed
+chariots** carve through packed infantry.
+
+Watch both **morale** bars: when a side breaks, it routs and flees the field. Spend limited
+**special gambits** at the dramatic moment:
+- 📯 **Rally the Troops** · 🐪 **Camel Gambit** (the horses bolt!) · 🛞 **Scythed Charge** · 🌙 **Night Assault**
 - 🌊 **Divert the River** (the Euphrates at Babylon) · 💰 **Bribe the Garrison**
 
 Defeat isn't the end — you keep your veterans and can regroup and try again.
@@ -87,7 +92,8 @@ index.html        Entry point — loads the three scripts
 css/style.css     Achaemenid-themed styling (lapis, royal red, Persian gold)
 js/data.js        Historical content: units, orders, terrain, titles, codex,
                   the 8 chapters and the 100-level generator
-js/engine.js      Game state, save/load, recruitment, and the battle resolver
+js/engine.js      Game state, save/load, recruitment, army setup
+js/battlefield.js The live, animated real-time battle (canvas simulation)
 js/ui.js          All screens and player interaction
 ```
 

@@ -429,5 +429,35 @@ function buildLevels() {
 
 const LEVELS = buildLevels();
 
+/* -------------------------------------------------------------------------
+   CHARACTERS  — the player hero and the named enemy commanders you fight.
+   These appear as portraits in the briefing and as hero figures on the field.
+   ------------------------------------------------------------------------- */
+const HERO = { name: "Cyrus the Great", epithet: "The Shepherd King", avatar: "🦅", cry: "For Persia and the house of Achaemenes — forward!" };
+
+const COMMANDERS = {
+  // keyed by chapter id (fallback) with per-level overrides below
+  1: { name: "The Tribal Chiefs",   avatar: "🪓", cry: "Persia bows to no upstart prince!" },
+  2: { name: "Astyages of Media",   avatar: "👴", cry: "Drag the rebel back to Ecbatana in chains!" },
+  3: { name: "Croesus of Lydia",    avatar: "🤴", cry: "My gold has bought the finest horse in Asia!" },
+  4: { name: "The Ionian League",   avatar: "🏛️", cry: "Free Greeks will not kneel to a Persian!" },
+  5: { name: "The Bactrian Lords",  avatar: "🐎", cry: "The eastern horse will ride you into the dust!" },
+  6: { name: "Belshazzar of Babylon", avatar: "👑", cry: "The walls of Babylon have never fallen!" },
+  7: { name: "The Rebel Satraps",   avatar: "⚔️", cry: "The empire is too vast for one king to hold!" },
+  8: { name: "Queen Tomyris",       avatar: "👸", cry: "You thirst for blood, Cyrus — I will give you your fill!" }
+};
+const COMMANDER_OVERRIDE = {
+  18: { name: "Astyages & Harpagus", avatar: "⚔️", cry: "Harpagus — hold the line! ...Harpagus?!" },
+  34: { name: "Croesus of Lydia",    avatar: "🤴", cry: "Loose the heavy horse — ride them down!" },
+  38: { name: "Croesus, besieged",   avatar: "🏯", cry: "These walls cannot be climbed!" },
+  72: { name: "Nabonidus of Babylon",avatar: "👑", cry: "Hold them at the Tigris!" },
+  78: { name: "Belshazzar at the Feast", avatar: "🍷", cry: "Let them batter the walls — we feast tonight!" },
+  100:{ name: "Queen Tomyris",       avatar: "👸", cry: "For my son. Drink your fill of blood at last." }
+};
+function getCommander(n) {
+  const lvl = LEVELS[n - 1];
+  return COMMANDER_OVERRIDE[n] || COMMANDERS[lvl.chapter] || COMMANDERS[1];
+}
+
 /* expose to the rest of the game */
-window.GAMEDATA = { UNITS, ORDERS, ORDER_COUNTER, ABILITIES, TERRAIN, TITLES, CODEX, DECISIONS, CHAPTERS, LEVELS };
+window.GAMEDATA = { UNITS, ORDERS, ORDER_COUNTER, ABILITIES, TERRAIN, TITLES, CODEX, DECISIONS, CHAPTERS, LEVELS, HERO, COMMANDERS, getCommander };
