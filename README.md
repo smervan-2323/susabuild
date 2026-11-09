@@ -59,6 +59,12 @@ Watch both **morale** bars: when a side breaks, it routs and flees the field. Sp
 - 📯 **Rally the Troops** · 🐪 **Camel Gambit** (the horses bolt!) · 🛞 **Scythed Charge** · 🌙 **Night Assault**
 - 🌊 **Divert the River** (the Euphrates at Babylon) · 💰 **Bribe the Garrison**
 
+**Cinematic action:** Cyrus and the enemy king ride at the head of their armies as mounted,
+crowned hero units; melee comes with attack lunges, slashing arcs, blood, dust and screen shake;
+and a **slow-motion, zoomed finishing blow** fires when a commander falls. Battle **sound** is
+synthesized live (war horns, clashing steel, arrow volleys, drums, panic, victory fanfares) — toggle
+it with the 🔊 button.
+
 Defeat isn't the end — you keep your veterans and can regroup and try again.
 
 ---
@@ -93,8 +99,11 @@ css/style.css     Achaemenid-themed styling (lapis, royal red, Persian gold)
 js/data.js        Historical content: units, orders, terrain, titles, codex,
                   the 8 chapters and the 100-level generator
 js/engine.js      Game state, save/load, recruitment, army setup
-js/battlefield.js The live, animated real-time battle (canvas simulation)
+js/battlefield.js The live, animated real-time battle (canvas sim, camera, cinematics)
+js/audio.js       Battle sound, synthesized live with the Web Audio API (no files)
+js/hero.js        The animated SVG portrait of Cyrus the Great
 js/ui.js          All screens and player interaction
+cyrus.html        Standalone animated-Cyrus showcase page
 ```
 
 The code is plain, dependency-free ES (classic scripts) — easy to read and extend. Want to add a

@@ -43,7 +43,10 @@ const UI = {
         </div>
       </div>`;
     const stage = document.getElementById("hero-stage");
-    if (stage) { stage.onclick = () => window.cyrusCry && window.cyrusCry(stage); window.cyrusCry && window.cyrusCry(stage); }
+    if (stage) {
+      stage.onclick = () => { if (window.cyrusCry) window.cyrusCry(stage); if (window.SFX) { SFX.resume(); SFX.cry(); } };
+      if (window.cyrusCry) window.cyrusCry(stage);   // silent auto-play on load (no gesture = no sound)
+    }
     document.getElementById("btn-continue").onclick = () => hasSave && this.renderMap();
     document.getElementById("btn-new").onclick = () => {
       if (!hasSave || confirm("Begin a new campaign? Your current progress will be lost.")) {
@@ -352,6 +355,7 @@ const UI = {
         <div class="battle-header">
           <span class="bh-title">${esc(lvl.title)}</span>
           <span class="bh-terr">${D.TERRAIN[lvl.terrain].icon} ${D.TERRAIN[lvl.terrain].name}${b.fort > 0 ? ` · 🏰` : ""}</span>
+          <button class="sound-btn" id="sound-toggle" title="Toggle battle sound">${window.SFX && SFX.enabled === false ? "🔇" : "🔊"}</button>
         </div>
         <div class="field-wrap">
           <div class="morale-strip">
@@ -378,6 +382,13 @@ const UI = {
         btn.classList.add("active");
       };
     });
+    const snd = document.getElementById("sound-toggle");
+    if (snd) snd.onclick = () => {
+      if (!window.SFX) return;
+      SFX.resume(); SFX.setEnabled(!SFX.enabled);
+      snd.textContent = SFX.enabled ? "🔊" : "🔇";
+      if (SFX.enabled) SFX.horn();
+    };
     document.querySelectorAll("[data-ab]").forEach(btn => {
       btn.onclick = () => {
         const r = Field.fireAbility(btn.dataset.ab, b);

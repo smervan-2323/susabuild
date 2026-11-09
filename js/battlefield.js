@@ -31,7 +31,10 @@ const Field = {
       startCount: { p: {}, e: {} }, figTotal: { p: {}, e: {} },
       ended: false, won: false, paused: false,
       flash: null, flashT: 0,
-      commander: D.getCommander(levelObj.n)
+      commander: D.getCommander(levelObj.n),
+      timeScale: 1, slowT: 0,
+      cam: { zoom: 1, cx: this.W / 2, cy: this.H / 2, tz: 1, tcx: this.W / 2, tcy: this.H / 2, shakeT: 0 },
+      sfx: { clash: 0, arrow: 0, dust: 0 }
     };
 
     // Spawn figures from the committed armies.
@@ -41,6 +44,7 @@ const Field = {
     this.lastTs = performance.now();
     this.raf = requestAnimationFrame(t => this._loop(t));
     this._announce("⚔️ " + levelObj.title, 1.6);
+    if (window.SFX) { SFX.resume(); setTimeout(() => SFX.horn(), 120); }
   },
 
   stop() {
@@ -60,7 +64,7 @@ const Field = {
 
   /* ---------- spawning ---------- */
   _spawnSide(side, army, isPlayer) {
-    const MAX = 34;                      // max figures per side
+    const MAX = 44;                      // max figures per side
     const total = Object.values(army).reduce((s, u) => s + u.count, 0) || 1;
     const entries = Object.entries(army).filter(([, u]) => u.count > 0);
 
@@ -127,6 +131,14 @@ const Field = {
     a.stanceTimer = (key === "volley" || key === "feigned") ? 3.2 : 6;
     const labels = { charge: "CHARGE!", shieldwall: "SHIELD WALL!", volley: "LOOSE!", flank: "FLANK THEM!", feigned: "FALL BACK!" };
     if (labels[key]) this._announce(labels[key], 1.1, "#e0b64b");
+    if (window.SFX) { SFX.resume();
+      if (key === "charge") SFX.charge();
+      else if (key === "volley") SFX.arrow();
+      else if (key === "flank") SFX.drum();
+      else SFX.drum();
+    }
+    // charge kicks up a wall of dust along the player line
+    if (key === "charge") { this._shake(); for (const u of this.units) if (u.side === "p" && u.state !== "dead") this._dust(u.x - u.face * 10, u.y + 2, 2); }
     // volley: instant arrow burst from archers
     if (key === "volley") for (const u of this.units) if (u.side === "p" && u.role === "archer" && u.state !== "dead") u.shootCd = Math.min(u.shootCd, 0.1);
   },
@@ -139,45 +151,68 @@ const Field = {
     ab.left--;
     if (ab.gold) { Game.state.gold -= ab.gold; Game.save(); }
 
+    if (window.SFX) SFX.resume();
     if (key === "rally") {
       a.pMorale = Math.min(150, a.pMorale + 24);
       for (const u of this.units) if (u.side === "p" && u.state !== "dead") { u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.18); this._burst(u.x, u.y, "#4caf50", 6); }
-      this._announce("📯 RALLY!", 1.3, "#4caf50");
+      this._announce("📯 RALLY!", 1.3, "#4caf50"); if (window.SFX) SFX.rally();
     }
     if (key === "camel") {
       // enemy cavalry panic and flee; big morale hit
-      for (const u of this.units) if (u.side === "e" && (u.role === "cavalry") && u.state !== "dead") { u.state = "flee"; u.spook = 3; }
+      for (const u of this.units) if (u.side === "e" && (u.role === "cavalry") && u.state !== "dead") { u.state = "flee"; u.spook = 3; this._dust(u.x, u.y, 3); }
       a.eMorale -= 28; this._announce("🐪 THE CAMELS! Their horses bolt!", 1.8, "#e0b64b");
-      this._shake();
+      this._shake(0.6); if (window.SFX) SFX.panic();
     }
     if (key === "scythe") {
-      for (const u of this.units) if (u.side === "e" && u.role === "infantry" && u.state !== "dead") { this._hurt(u, u.maxHp * 0.6, null); }
-      a.eMorale -= 16; this._announce("🛞 SCYTHED CHARGE!", 1.5, "#b5342a"); this._shake();
+      for (const u of this.units) if (u.side === "e" && u.role === "infantry" && u.state !== "dead") { this._hurt(u, u.maxHp * 0.6, null); this._burst(u.x, u.y, "#c0392b", 6); }
+      a.eMorale -= 16; this._announce("🛞 SCYTHED CHARGE!", 1.5, "#b5342a"); this._shake(0.6); if (window.SFX) { SFX.charge(); SFX.clash(); }
     }
     if (key === "night") {
       for (const u of this.units) if (u.side === "e" && u.state !== "dead") this._hurt(u, u.maxHp * 0.22, null);
-      a.eMorale -= 18; this._announce("🌙 NIGHT ASSAULT!", 1.5, "#3f7ab0");
+      a.eMorale -= 18; this._announce("🌙 NIGHT ASSAULT!", 1.5, "#3f7ab0"); this._shake(0.4); if (window.SFX) SFX.clash();
     }
     if (key === "diversion") {
       a.fort = Math.round(a.fort * 0.2); a.eMorale -= 22;
       for (const u of this.units) if (u.side === "e" && u.state !== "dead" && Math.random() < 0.4) this._hurt(u, u.maxHp * 0.3, null);
-      this._announce("🌊 THE RIVER SINKS — through the dry bed!", 2, "#3f7ab0"); this._shake();
+      this._announce("🌊 THE RIVER SINKS — through the dry bed!", 2, "#3f7ab0"); this._shake(0.6); if (window.SFX) SFX.water();
     }
     if (key === "bribe") {
       const foes = this.units.filter(u => u.side === "e" && u.state !== "dead");
       foes.slice(0, Math.ceil(foes.length * 0.28)).forEach(u => this._kill(u));
-      a.eMorale -= 14; this._announce("💰 The gates are bought open!", 1.6, "#e0b64b");
+      a.eMorale -= 14; this._announce("💰 The gates are bought open!", 1.6, "#e0b64b"); if (window.SFX) SFX.horn();
     }
     return { ok: true, name: ab.name };
   },
 
   /* ---------- simulation loop ---------- */
   _loop(ts) {
-    const dt = Math.min(0.05, (ts - this.lastTs) / 1000);
-    this.lastTs = ts; this.time += dt;
-    if (!this.active.paused) this._update(dt);
+    const real = Math.min(0.05, (ts - this.lastTs) / 1000);
+    this.lastTs = ts;
+    const a = this.active;
+    // slow-motion timer (cinematic finishing blows) runs on real time
+    if (a.slowT > 0) { a.slowT -= real; if (a.slowT <= 0) { a.timeScale = 1; a.cam.tz = 1; a.cam.tcx = this.W / 2; a.cam.tcy = this.H / 2; } }
+    this._updateCamera(real);
+    const dt = real * a.timeScale;
+    this.time += dt;
+    if (!a.paused) this._update(dt);
     this._draw();
-    if (!this.active.ended) this.raf = requestAnimationFrame(t => this._loop(t));
+    if (!a.ended) this.raf = requestAnimationFrame(t => this._loop(t));
+  },
+
+  _updateCamera(dt) {
+    const c = this.active.cam;
+    const k = Math.min(1, dt * 6);
+    c.zoom += (c.tz - c.zoom) * k;
+    c.cx += (c.tcx - c.cx) * k;
+    c.cy += (c.tcy - c.cy) * k;
+    if (c.shakeT > 0) c.shakeT -= dt;
+  },
+
+  // Cinematic: slow time and punch-zoom onto a point (a falling commander, etc.)
+  _cinematic(x, y, zoom, dur) {
+    const a = this.active;
+    a.timeScale = 0.32; a.slowT = dur || 1.1;
+    a.cam.tz = zoom || 1.7; a.cam.tcx = x; a.cam.tcy = y; a.cam.shakeT = 0.5;
   },
 
   _alive(side) { return this.units.filter(u => u.side === side && u.state !== "dead" && u.state !== "gone"); },
@@ -186,7 +221,7 @@ const Field = {
     const a = this.active;
     if (a.stanceTimer > 0) { a.stanceTimer -= dt; if (a.stanceTimer <= 0 && a.stance !== "advance") a.stance = "advance"; }
     if (a.flashT > 0) a.flashT -= dt;
-    if (this._shakeT > 0) this._shakeT -= dt;
+    for (const k in a.sfx) if (a.sfx[k] > 0) a.sfx[k] -= dt;
 
     // stance modifiers for player units
     const st = a.stance;
@@ -195,6 +230,10 @@ const Field = {
       u.bob += dt * 6;
       if (u.flinch > 0) u.flinch -= dt;
       if (u.spook > 0) u.spook -= dt;
+      if (u.lunge > 0) u.lunge -= dt;
+      if (u.kb) { u.x += u.kb * dt * 12; u.kb *= Math.max(0, 1 - dt * 9); if (Math.abs(u.kb) < 0.05) u.kb = 0; }
+      // dust kicked up by moving mounts
+      if ((u.role === "cavalry" || u.role === "camel" || u.role === "chariot") && u.state === "adv" && Math.random() < dt * 4) this._dust(u.x - u.face * 8, u.y + 2, 1);
 
       let dmgMul = 1, spdMul = 1, defMul = 1;
       if (u.side === "p") {
@@ -232,6 +271,7 @@ const Field = {
         if (u.shootCd <= 0 && dist < 320) {
           this._shoot(u, tg, dmgMul);
           u.shootCd = (st === "volley" && u.side === "p") ? 0.7 : 1.5 + Math.random() * 0.6;
+          if (window.SFX && a.sfx.arrow <= 0) { SFX.arrow(); a.sfx.arrow = 0.5; }
         }
       } else {
         // melee: close in, then fight
@@ -250,14 +290,18 @@ const Field = {
           u.atkCd -= dt;
           if (u.atkCd <= 0) {
             let dmg = u.dmg * dmgMul;
+            u.lunge = 0.18;                                  // visible attack lunge
+            this._slash(tg.x, tg.y - 10, u.face);            // slash arc
             // charge bonus
-            if (!u.charged && (u.role === "cavalry" || u.role === "chariot")) { dmg *= 2.0; u.charged = true; this._burst(tg.x, tg.y, "#fff", 5); }
+            if (!u.charged && (u.role === "cavalry" || u.role === "chariot")) { dmg *= 2.0; u.charged = true; this._burst(tg.x, tg.y, "#fff", 7); this._shake(0.3); if (window.SFX) SFX.thud(); }
             // matchup: spears vs cavalry (esp. shieldwall), archers die in melee, camels vs cav
             if (u.role === "infantry" && tg.role === "cavalry") dmg *= (u.side === "p" && st === "shieldwall") ? 1.9 : 1.35;
             if (u.role === "cavalry" && tg.role === "archer") dmg *= 1.6;
             if (u.role === "camel" && tg.role === "cavalry") { dmg *= 1.8; tg.spook = 2; }
             if (tg.role === "archer" && u.role !== "archer") dmg *= 1.3;
+            tg.kb = (u.face) * (u.role === "cavalry" || u.role === "chariot" ? 3.2 : 1.6);  // knockback
             this._hurt(tg, dmg, u);
+            if (window.SFX && a.sfx.clash <= 0) { SFX.clash(); a.sfx.clash = 0.12; }
             u.atkCd = 0.55 + Math.random() * 0.3;
           }
         }
@@ -322,8 +366,8 @@ const Field = {
   _hurt(u, dmg, from) {
     // shieldwall defence for player targets
     if (u.side === "p" && this.active.stance === "shieldwall") dmg *= 0.6;
-    u.hp -= dmg; u.flinch = 0.15;
-    this._burst(u.x, u.y - 8, "#c0392b", 3);
+    u.hp -= dmg; u.flinch = 0.18;
+    this._burst(u.x, u.y - 8, "#9c1c14", 4);                 // blood
     if (u.hp <= 0) this._kill(u);
   },
 
@@ -333,7 +377,12 @@ const Field = {
     const a = this.active;
     const share = u.hero ? 10 : 2.6;
     if (u.side === "p") a.pMorale -= share; else a.eMorale -= share;
-    if (u.hero) this._announce(u.side === "p" ? "Your commander falls!" : u.name + " is slain!", 1.8, u.side === "p" ? "#c0392b" : "#e0b64b");
+    this._burst(u.x, u.y - 6, "#7c1810", u.hero ? 14 : 6);   // death spray
+    if (u.hero) {
+      this._announce(u.side === "p" ? "⚑ Your commander falls!" : "⚑ " + u.name + " is slain!", 2.2, u.side === "p" ? "#c0392b" : "#e0b64b");
+      this._cinematic(u.x, u.y - 10, 2.0, 1.2);              // slow-motion finishing blow
+      if (window.SFX) { SFX.thud(); setTimeout(() => u.side === "p" ? SFX.defeat() : SFX.cry(), 200); }
+    }
   },
 
   _strengthFrac(side) {
@@ -342,14 +391,18 @@ const Field = {
     return al / tot;
   },
 
-  _burst(x, y, color, n) { for (let i = 0; i < n; i++) this.fx.push({ x, y, vx: (Math.random() - 0.5) * 80, vy: -Math.random() * 90, life: 0.4 + Math.random() * 0.3, color }); },
+  _burst(x, y, color, n) { for (let i = 0; i < n; i++) this.fx.push({ type: "p", x, y, vx: (Math.random() - 0.5) * 90, vy: -Math.random() * 100, life: 0.4 + Math.random() * 0.35, color }); },
+  _dust(x, y, n) { for (let i = 0; i < n; i++) this.fx.push({ type: "dust", x: x + (Math.random() - 0.5) * 8, y, vx: (Math.random() - 0.5) * 20, vy: -8 - Math.random() * 14, life: 0.5 + Math.random() * 0.4, r: 3 + Math.random() * 4 }); },
+  _slash(x, y, face) { this.fx.push({ type: "slash", x, y, face, life: 0.16 }); },
   _announce(text, dur, color) { this.active.flash = { text, color: color || "#f2e6cf" }; this.active.flashT = dur; },
-  _shake() { this._shakeT = 0.4; },
+  _shake(amt) { this.active.cam.shakeT = Math.max(this.active.cam.shakeT, amt || 0.4); },
 
   _finish(won) {
     if (this.active.ended) return;
     this.active.ended = true; this.active.won = won;
     this._announce(won ? "🏆 VICTORY!" : "💀 DEFEAT", 2.4, won ? "#e0b64b" : "#c0392b");
+    this._cinematic(this.W / 2, this.H / 2, 1.35, 1.3);
+    if (window.SFX) won ? SFX.victory() : SFX.defeat();
     // Compute survivors per type for the campaign roster.
     const survivors = {};
     for (const [k, start] of Object.entries(this.active.startCount.p)) {
@@ -364,33 +417,51 @@ const Field = {
   /* ================= DRAWING ================= */
   _draw() {
     const ctx = this.ctx, W = this.W, H = this.H;
+    const cam = this.active.cam;
     ctx.save();
-    if (this._shakeT > 0) ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
+    // camera: shake + punch-zoom focus
+    if (cam.shakeT > 0) { const m = cam.shakeT * 14; ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m); }
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(cam.zoom, cam.zoom);
+    ctx.translate(-cam.cx, -cam.cy);
+
     this._drawBackground(ctx, W, H);
 
     // sort by y for depth; dead first (under), heroes last (over)
-    const order = this.units.slice().sort((a, b) => (a.state === "dead" ? -1 : 0) - (b.state === "dead" ? -1 : 0) || a.y - b.y);
+    const order = this.units.slice().sort((a, b) => (a.state === "dead" ? -1 : 0) - (b.state === "dead" ? -1 : 0) || (a.hero ? 1 : 0) - (b.hero ? 1 : 0) || a.y - b.y);
     for (const u of order) this._drawWarrior(ctx, u);
 
-    // projectiles
+    // projectiles (arrows)
     ctx.strokeStyle = "#e8dcbf"; ctx.lineWidth = 2;
     for (const p of this.projectiles) {
       const ang = Math.atan2(p.vy, p.vx);
-      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - Math.cos(ang) * 9, p.y - Math.sin(ang) * 9); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - Math.cos(ang) * 10, p.y - Math.sin(ang) * 10); ctx.stroke();
     }
-    // fx
-    for (const f of this.fx) { ctx.globalAlpha = Math.max(0, f.life * 2); ctx.fillStyle = f.color; ctx.fillRect(f.x, f.y, 3, 3); ctx.globalAlpha = 1; }
-
-    // announcement flash
-    if (this.active.flashT > 0 && this.active.flash) {
-      const al = Math.min(1, this.active.flashT);
-      ctx.globalAlpha = al; ctx.textAlign = "center";
-      ctx.font = "800 30px 'Trebuchet MS', sans-serif";
-      ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillText(this.active.flash.text, W / 2 + 2, H / 2 + 2);
-      ctx.fillStyle = this.active.flash.color; ctx.fillText(this.active.flash.text, W / 2, H / 2);
-      ctx.globalAlpha = 1; ctx.textAlign = "left";
+    // fx: dust clouds, slash arcs, blood/spark particles
+    for (const f of this.fx) {
+      const al = Math.max(0, Math.min(1, f.life * 2.2));
+      if (f.type === "dust") {
+        ctx.globalAlpha = al * 0.5; ctx.fillStyle = "#cbb78a";
+        ctx.beginPath(); ctx.arc(f.x, f.y, (f.r || 4) * (1.4 - f.life), 0, 6.28); ctx.fill();
+      } else if (f.type === "slash") {
+        ctx.globalAlpha = al; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(f.x, f.y, 14, f.face > 0 ? -1.0 : 2.1, f.face > 0 ? 1.0 : 4.1); ctx.stroke();
+      } else {
+        ctx.globalAlpha = al; ctx.fillStyle = f.color; ctx.fillRect(f.x, f.y, 3.2, 3.2);
+      }
+      ctx.globalAlpha = 1;
     }
     ctx.restore();
+
+    // announcement flash — drawn in screen space (not zoomed)
+    if (this.active.flashT > 0 && this.active.flash) {
+      const al = Math.min(1, this.active.flashT);
+      ctx.save(); ctx.globalAlpha = al; ctx.textAlign = "center";
+      ctx.font = "800 clamp(22px,4vw,34px) 'Trebuchet MS', sans-serif";
+      ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillText(this.active.flash.text, W / 2 + 2, H * 0.3 + 2);
+      ctx.fillStyle = this.active.flash.color; ctx.fillText(this.active.flash.text, W / 2, H * 0.3);
+      ctx.restore();
+    }
   },
 
   _drawBackground(ctx, W, H) {
@@ -443,14 +514,15 @@ const Field = {
   },
 
   _drawWarrior(ctx, u) {
+    if (u.hero) return this._drawHero(ctx, u);
     const player = u.side === "p";
     const main = player ? "#2f5d8c" : "#8e2b24";
-    const trim = player ? "#e0b64b" : "#e0b64b";
+    const trim = "#e0b64b";
     const skin = "#caa06a";
+    const lunge = (u.lunge > 0 ? (u.lunge / 0.18) * 5 : 0);   // thrust toward foe when striking
     ctx.save();
-    ctx.translate(u.x, u.y);
-    const s = u.hero ? 1.5 : 1;
-    ctx.scale(u.face * s, s);
+    ctx.translate(u.x + u.face * lunge, u.y);
+    ctx.scale(u.face, 1);
 
     if (u.state === "dead") {
       ctx.globalAlpha = 0.5; ctx.rotate(u.deadAngle || 1);
@@ -510,23 +582,78 @@ const Field = {
       ctx.beginPath(); ctx.moveTo(6, ry - 14 + bob); ctx.lineTo(13, ry - 24 + bob); ctx.stroke();
     }
 
-    // hero crown + banner + name
-    if (u.hero) {
-      ctx.fillStyle = "#e0b64b";
-      ctx.beginPath(); ctx.moveTo(-4, ry - 26 + bob); ctx.lineTo(-4, ry - 30 + bob); ctx.lineTo(-1.5, ry - 27 + bob);
-      ctx.lineTo(0, ry - 31 + bob); ctx.lineTo(1.5, ry - 27 + bob); ctx.lineTo(4, ry - 30 + bob); ctx.lineTo(4, ry - 26 + bob); ctx.fill();
-      // banner pole
-      ctx.strokeStyle = "#7a5a32"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8, ry + 2 + bob); ctx.lineTo(-8, ry - 34 + bob); ctx.stroke();
-      ctx.fillStyle = player ? "#8e2b24" : "#2f5d8c"; ctx.fillRect(-8, ry - 34 + bob, 11, 8);
-      ctx.restore();
-      // name label (unflipped)
-      ctx.save(); ctx.translate(u.x, u.y);
-      ctx.font = "700 10px 'Trebuchet MS'"; ctx.textAlign = "center";
-      ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillText(u.name || "", 0, (mounted ? -40 : -34) + 1);
-      ctx.fillStyle = player ? "#bfe0ff" : "#ffd9b0"; ctx.fillText(u.name || "", 0, mounted ? -40 : -34);
-      ctx.textAlign = "left"; ctx.restore();
-      return;
+    ctx.restore();
+  },
+
+  // A mounted, crowned commander (Cyrus, or the enemy king) — larger and regal.
+  _drawHero(ctx, u) {
+    const player = u.side === "p";
+    const robe = player ? "#9c2f27" : "#2f4a6d";
+    const horse = player ? "#5a4030" : "#40342a";
+    const cape = player ? "#5a2a7a" : "#3a2f5a";
+    ctx.save(); ctx.translate(u.x, u.y);
+
+    // shadow
+    ctx.globalAlpha = 0.3; ctx.fillStyle = "#000";
+    ctx.beginPath(); ctx.ellipse(0, 5, 20, 5.5, 0, 0, 6.28); ctx.fill(); ctx.globalAlpha = 1;
+
+    if (u.state === "dead") {
+      ctx.rotate(u.deadAngle || 1); ctx.globalAlpha = 0.6;
+      ctx.fillStyle = robe; ctx.fillRect(-16, -6, 32, 10);
+      ctx.fillStyle = "#e0b64b"; ctx.fillRect(14, -8, 10, 6);   // fallen crown
+      ctx.restore(); return;
     }
+
+    const bob = Math.sin(u.bob) * (u.state === "adv" ? 1.8 : 0.6);
+    const lunge = (u.lunge > 0 ? (u.lunge / 0.18) * 6 : 0);
+    // distinction glow
+    ctx.globalAlpha = 0.18; ctx.fillStyle = player ? "#3f7ab0" : "#b5342a";
+    ctx.beginPath(); ctx.arc(0, -30, 30, 0, 6.28); ctx.fill(); ctx.globalAlpha = 1;
+
+    ctx.save(); ctx.translate(u.face * lunge, 0); ctx.scale(u.face, 1);
+    // ---- war-horse ----
+    ctx.fillStyle = horse;
+    ctx.fillRect(-20, -22, 40, 15);                 // body
+    ctx.fillRect(16, -36, 8, 17);                   // neck
+    ctx.beginPath(); ctx.arc(23, -38, 6, 0, 6.28); ctx.fill();   // head
+    ctx.fillRect(-19, -9, 5, 15); ctx.fillRect(13, -9, 5, 15);   // legs
+    ctx.beginPath(); ctx.moveTo(-20, -20); ctx.lineTo(-30, -14); ctx.lineTo(-20, -12); ctx.fill(); // tail
+    // royal saddle cloth
+    ctx.fillStyle = robe; ctx.fillRect(-17, -24, 28, 9);
+    ctx.fillStyle = "#e0b64b"; ctx.fillRect(-17, -16, 28, 2);
+
+    const ry = -34;
+    // cape
+    ctx.fillStyle = cape;
+    ctx.beginPath(); ctx.moveTo(-6, ry - 12 + bob); ctx.quadraticCurveTo(-22, ry + 10 + bob, -14, ry + 20 + bob); ctx.lineTo(-4, ry + 2 + bob); ctx.fill();
+    // robe/torso
+    ctx.fillStyle = robe; ctx.fillRect(-7, ry - 18 + bob, 14, 22);
+    ctx.fillStyle = "#e0b64b"; ctx.fillRect(-7, ry - 2 + bob, 14, 2);  // belt
+    ctx.fillStyle = "#e0b64b"; ctx.fillRect(-1, ry - 18 + bob, 2, 20); // robe seam
+    // head + beard
+    ctx.fillStyle = "#d8a36a"; ctx.beginPath(); ctx.arc(0, ry - 24 + bob, 6, 0, 6.28); ctx.fill();
+    ctx.fillStyle = "#2e2016"; ctx.beginPath(); ctx.arc(0, ry - 19 + bob, 5.4, 0, Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(-5, ry - 24 + bob, 3, 0.4, 2.6); ctx.arc(5, ry - 24 + bob, 3, 0.6, 2.8); ctx.fill(); // side hair
+    // fluted crown
+    ctx.fillStyle = "#e0b64b"; ctx.fillRect(-8, ry - 34 + bob, 16, 10);
+    ctx.fillStyle = "#c8912b"; for (let cx = -8; cx < 8; cx += 4) ctx.fillRect(cx, ry - 38 + bob, 3, 4);
+    ctx.fillStyle = "#2a5a8c"; ctx.beginPath(); ctx.arc(0, ry - 29 + bob, 2.4, 0, 6.28); ctx.fill();
+    // raised sword (lifts when striking)
+    const raise = u.lunge > 0 ? 9 : 0;
+    ctx.strokeStyle = "#dfe6ee"; ctx.lineWidth = 3; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(7, ry - 8 + bob); ctx.lineTo(17, ry - 26 - raise + bob); ctx.stroke();
+    ctx.fillStyle = "#e0b64b"; ctx.fillRect(5, ry - 10 + bob, 5, 3);   // hilt guard
+    // banner (behind)
+    ctx.strokeStyle = "#7a5a32"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-14, ry + 4 + bob); ctx.lineTo(-14, ry - 46 + bob); ctx.stroke();
+    ctx.fillStyle = player ? "#8e2b24" : "#2f5d8c"; ctx.fillRect(-14, ry - 46 + bob, 14, 10);
+    ctx.fillStyle = "#e0b64b"; ctx.font = "8px serif"; ctx.textAlign = "center"; ctx.fillText(player ? "𐎠" : "✶", -7, ry - 38 + bob); ctx.textAlign = "left";
+    ctx.restore();
+
+    // name label (screen-upright)
+    ctx.font = "700 11px 'Trebuchet MS'"; ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(0,0,0,.65)"; ctx.fillText(u.name || "", 1, -61);
+    ctx.fillStyle = player ? "#bfe0ff" : "#ffd9b0"; ctx.fillText(u.name || "", 0, -62);
+    ctx.textAlign = "left";
     ctx.restore();
   }
 };
