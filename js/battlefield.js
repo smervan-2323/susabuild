@@ -537,6 +537,9 @@ const Field = {
     ctx.globalAlpha = 0.25; ctx.fillStyle = "#000";
     ctx.beginPath(); ctx.ellipse(0, 2, 10, 3.4, 0, 0, 6.28); ctx.fill(); ctx.globalAlpha = 1;
 
+    // The Immortals get distinctive elite guardsman art.
+    if (u.type === "immortals") { this._immortalBody(ctx, u, bob); ctx.restore(); return; }
+
     const mounted = u.role === "cavalry" || u.role === "camel" || u.role === "chariot";
     if (mounted) {
       // mount body
@@ -582,6 +585,49 @@ const Field = {
       ctx.beginPath(); ctx.moveTo(6, ry - 14 + bob); ctx.lineTo(13, ry - 24 + bob); ctx.stroke();
     }
 
+    ctx.restore();
+  },
+
+  // An original Immortal guardsman: fluted gold tiara, patterned robe, a tall
+  // spear and a big spara shield bearing a winged emblem. (Elite, player-side.)
+  _immortalBody(ctx, u, bob) {
+    const gold = "#d8b24a", goldD = "#9c7016", blue = "#2f4a8c", robe = "#c49a3e";
+    const f = u.flinch > 0 ? 1.5 : 0;
+    // patterned trousers
+    ctx.fillStyle = blue;
+    ctx.fillRect(-6, -9 + bob * 0.3, 5, 10); ctx.fillRect(1, -9 - bob * 0.3, 5, 10);
+    ctx.fillStyle = gold; ctx.fillRect(-5, -6, 1.4, 1.4); ctx.fillRect(2.6, -4, 1.4, 1.4); ctx.fillRect(-4, -2, 1.4, 1.4); ctx.fillRect(3, -7, 1.4, 1.4);
+    const ry = -2 + f;
+    // long robe (trapezoid)
+    ctx.fillStyle = robe;
+    ctx.beginPath(); ctx.moveTo(-6, ry - 14 + bob); ctx.lineTo(6, ry - 14 + bob); ctx.lineTo(9, -2); ctx.lineTo(-9, -2); ctx.closePath(); ctx.fill();
+    // hem band + studs
+    ctx.fillStyle = blue; ctx.fillRect(-9, -5, 18, 3);
+    ctx.fillStyle = gold; for (let x = -8; x <= 8; x += 3) ctx.fillRect(x, -4.4, 1.3, 1.3);
+    // gilded chest
+    ctx.fillStyle = gold; ctx.fillRect(-5, ry - 14 + bob, 10, 8);
+    ctx.fillStyle = goldD; ctx.fillRect(-5, ry - 10 + bob, 10, 1.4);
+    ctx.fillStyle = "#7a5713"; ctx.fillRect(-6, ry - 6 + bob, 12, 2);   // belt
+    // tall spear (back hand)
+    ctx.strokeStyle = "#7a5a32"; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.moveTo(-7, ry - 32 + bob); ctx.lineTo(-7, 2); ctx.stroke();
+    ctx.fillStyle = "#e8e2d2"; ctx.beginPath(); ctx.moveTo(-7, ry - 37 + bob); ctx.lineTo(-9.4, ry - 31 + bob); ctx.lineTo(-4.6, ry - 31 + bob); ctx.closePath(); ctx.fill();
+    // head + curled beard
+    ctx.fillStyle = "#caa06a"; ctx.beginPath(); ctx.arc(0, ry - 20 + bob, 4.4, 0, 6.28); ctx.fill();
+    ctx.fillStyle = "#2e2016"; ctx.beginPath(); ctx.arc(0, ry - 16 + bob, 3.8, 0, Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(-4, ry - 21 + bob, 2.4, 0.5, 2.9); ctx.fill();   // hair
+    // fluted tiara (crenellated gold crown)
+    ctx.fillStyle = gold; ctx.fillRect(-5, ry - 25 + bob, 10, 5);
+    ctx.fillStyle = goldD; for (let cx = -5; cx < 5; cx += 2.4) ctx.fillRect(cx, ry - 29 + bob, 1.7, 4);
+    ctx.fillStyle = "#8e2b24"; ctx.fillRect(-1.2, ry - 23 + bob, 2.4, 2);    // central gem
+    // big spara shield (forward hand), with a winged emblem
+    ctx.save(); ctx.translate(8, ry - 9 + bob);
+    ctx.fillStyle = "#7c2a20"; ctx.beginPath(); ctx.ellipse(0, 0, 6.4, 12.5, 0, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = gold; ctx.lineWidth = 1.6; ctx.stroke();
+    ctx.fillStyle = gold; ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, 6.28); ctx.fill();            // boss
+    ctx.strokeStyle = gold; ctx.lineWidth = 1; // winged emblem hint
+    ctx.beginPath(); ctx.moveTo(-4.5, -6); ctx.quadraticCurveTo(0, -4, 4.5, -6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-4.5, 6); ctx.quadraticCurveTo(0, 4, 4.5, 6); ctx.stroke();
     ctx.restore();
   },
 
